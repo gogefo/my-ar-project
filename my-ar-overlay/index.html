@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MindAR Animated Overlay</title>
+
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background: #000;
+    }
+
+    #ui {
+      position: fixed;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 520px;
+      z-index: 10;
+      color: white;
+      background: rgba(0, 0, 0, 0.65);
+      padding: 12px 16px;
+      border-radius: 12px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="ui">Point your camera at the printed image</div>
+
+  <a-scene
+    mindar-image="imageTargetSrc: ./targets.mind; autoStart: true;"
+    embedded
+    color-space="sRGB"
+    renderer="colorManagement: true, physicallyCorrectLights: true"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
+  >
+    <a-assets>
+      <!-- Overlay video -->
+      <video
+        id="overlayVideo"
+        src="./overlay.mp4"
+        preload="auto"
+        loop
+        muted
+        playsinline
+        webkit-playsinline
+        crossorigin="anonymous"
+      ></video>
+
+      <!-- Poster image while video is not playing -->
+      <img id="overlayPoster" src="./overlay-poster.png" alt="overlay poster" />
+
+    </a-assets>
+
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <!-- Target 0 = first compiled image -->
+    <a-entity id="target0" mindar-image-target="targetIndex: 0">
+
+      <!-- Static poster fallback -->
+      <a-plane
+        id="posterPlane"
+        src="#overlayPoster"
+        position="0 0 0.001"
+        width="1"
+        height="1.414"
+      ></a-plane>
+
+      <!-- Animated overlay exactly on the image -->
+      <a-video
+        id="videoPlane"
+        src="#overlayVideo"
+        position="0 0 0.002"
+        width="1.6"
+        height="0.9"
+        visible="false"
+      ></a-video>
+
+    </a-entity>
+
+    <!-- Lighting -->
+    <a-light type="ambient" intensity="1"></a-light>
+    <a-light type="directional" position="0 1 1" intensity="0.8"></a-light>
+  </a-scene>
+
+  <script>
+    const ui = document.getElementById("ui");
+    const target = document.querySelector("#target0");
+    const overlayVideo = document.querySelector("#overlayVideo");
+    const videoPlane = document.querySelector("#videoPlane");
+    const posterPlane = document.querySelector("#posterPlane");
+
+    target.addEventListener("targetFound", async () => {
+      ui.textContent = "Image detected — playing overlay";
+
+      try {
+        overlayVideo.currentTime = 0;
+        await overlayVideo.play();
+        posterPlane.setAttribute("visible", false);
+        videoPlane.setAttribute("visible", true);
+      } catch (err) {
+        ui.textContent = "Tap screen once to enable video playback";
+        console.error(err);
+      }
+    });
+
+    target.addEventListener("targetLost", () => {
+      ui.textContent = "Point your camera at the printed image";
+      overlayVideo.pause();
+      videoPlane.setAttribute("visible", false);
+      posterPlane.setAttribute("visible", true);
+    });
+
+    // Some phones require a user gesture before video can play
+    document.body.addEventListener("click", async () => {
+      try {
+        await overlayVideo.play();
+        overlayVideo.pause();
+        ui.textContent = "Ready — point at the printed image";
+      } catch (err) {
+        console.error(err);
+      }
+    }, { once: true });
+  </script>
+</body>
+</html>
